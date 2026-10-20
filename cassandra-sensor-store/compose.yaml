@@ -1,0 +1,39 @@
+services:
+  cassandra:
+    image: cassandra:latest
+    container_name: sensor-cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: sensors
+      # Small heap so the stack fits on a laptop.
+      MAX_HEAP_SIZE: 1G
+      HEAP_NEWSIZE: 200M
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe keyspaces'"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+
+  # One-shot: creates the keyspace, then exits. Spring Boot does not create keyspaces.
+  cassandra-init:
+    image: cassandra:latest
+    restart: "no"
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./src/test/resources/init.cql:/init.cql:ro
+    command: ["cqlsh", "cassandra", "-f", "/init.cql"]
+
+  app:
+    profiles: ["app"]
+    build: .
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      SPRING_CASSANDRA_CONTACT_POINTS: cassandra:9042
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully

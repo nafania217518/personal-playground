@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package quote.v1;
+
+option java_package = "dev.portfolio.quote.proto";
+option java_multiple_files = true;
+
+// Pricing service. Owned by pricing-service (Ktor + gRPC).
+service Pricing {
+  rpc GetPrice (PriceRequest) returns (PriceReply);
+}
+
+message PriceRequest {
+  string sku = 1;
+  int32 quantity = 2;
+}
+
+message PriceReply {
+  string sku = 1;
+  // Prices are in minor units (cents) to avoid floating point.
+  int64 unit_price_cents = 2;
+  int64 total_cents = 3;
+  string currency = 4;
+  // Discount applied as percent, 0 when none.
+  int32 discount_percent = 5;
+}

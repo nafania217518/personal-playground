@@ -1,0 +1,50 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1f2937;
+  background: #f3f4f6;
+}
+body { margin: 0; padding: 2rem 1rem; }
+.card {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.1);
+}
+header { display: flex; justify-content: space-between; align-items: center; }
+h1 { margin: 0 0 1rem; font-size: 1.5rem; }
+label { display: block; margin-top: 0.75rem; font-weight: 600; }
+input, textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  font: inherit;
+}
+button {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 0.25rem;
+  background: #2563eb;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+button:disabled { background: #9ca3af; cursor: not-allowed; }
+button.link { background: none; color: #2563eb; padding: 0.5rem 0; margin-left: 1rem; }
+button.delete, button.logout { background: #dc2626; }
+.error { color: #b91c1c; }
+ul { list-style: none; padding: 0; margin: 1.5rem 0 0; }
+.note {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid #e5e7eb;
+}
+.note p { margin: 0.25rem 0 0; white-space: pre-wrap; }
+.empty { color: #6b7280; padding: 0.75rem 0; }

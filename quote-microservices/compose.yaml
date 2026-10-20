@@ -1,0 +1,126 @@
+services:
+  elasticsearch:
+    image: elasticsearch:9.5.5
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs localhost:9200/_cluster/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  logstash:
+    image: logstash:9.5.5
+    environment:
+      - XPACK_MONITORING_ENABLED=false
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    ports:
+      - "${LOGSTASH_PORT:-5000}:5000"
+    volumes:
+      - ./elk/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs localhost:9600"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  kibana:
+    image: kibana:9.5.5
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs localhost:5601/api/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  # One-shot: creates the Kibana data view. 400 means it already exists.
+  kibana-init:
+    image: curlimages/curl
+    restart: "no"
+    depends_on:
+      kibana:
+        condition: service_healthy
+    command: >
+      sh -c '
+        code=$$(curl -s -o /dev/stderr -w "%{http_code}" -X POST http://kibana:5601/api/data_views/data_view
+          -H "kbn-xsrf: true" -H "content-type: application/json"
+          -d "{\"data_view\":{\"title\":\"quote-logs-*\",\"timeFieldName\":\"@timestamp\",\"name\":\"quote-logs\"}}");
+        echo; echo "kibana data view: HTTP $$code";
+        [ "$$code" = 200 ] || [ "$$code" = 400 ]'
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: inventory-service/Dockerfile
+    ports:
+      - "${INVENTORY_HTTP_PORT:-8081}:8081"
+      - "9091:9091"
+    environment:
+      - LOGSTASH_HOST=logstash
+    depends_on:
+      - logstash
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/8081"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  pricing-service:
+    build:
+      context: .
+      dockerfile: pricing-service/Dockerfile
+    ports:
+      - "8082:8082"
+      - "9092:9092"
+    environment:
+      - LOGSTASH_HOST=logstash
+    depends_on:
+      - logstash
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/8082"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      - INVENTORY_GRPC_HOST=inventory-service
+      - PRICING_GRPC_HOST=pricing-service
+      - LOGSTASH_HOST=logstash
+    depends_on:
+      - inventory-service
+      - pricing-service
+    healthcheck:
+      test: ["CMD", "bash", "-c", "</dev/tcp/localhost/8080"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+
+volumes:
+  esdata:
